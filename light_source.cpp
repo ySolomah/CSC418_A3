@@ -18,5 +18,24 @@ void PointLight::shade(Ray3D& ray) {
 	// is available.  So be sure that traverseScene() is called on the ray 
 	// before this function.  
 
+	Vector3D norm = ray.intersection.normal;
+	norm.normalize();
+
+	Vector3D lightVec = pos - ray.intersection.point;
+	lightVec.normalize();
+
+	Vector3D viewVec = -ray.dir;
+	viewVec.normalize();
+
+	Vector3D reflectVec = 2 * lightVec.dot(norm) * norm - lightVec;
+	reflectVec.normalize();
+
+	Color amb = *(ray.intersection.mat).ambient * col_ambient;
+	Color diff = *(ray.intersection.mat).diffuse * col_diffuse * max(0, norm.dot(lightVec));
+	Color spec = *(ray.intersection.mat).specular * col_specular * max(0, pow(viewVec.dot(reflectVec), *(ray.intersection.mat).specular_exp));
+
+	ray.col = ray.col + amb + diff + spec;
+	ray.col.clamp();
+
 }
 
