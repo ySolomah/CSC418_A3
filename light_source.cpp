@@ -30,9 +30,9 @@ void PointLight::shade(Ray3D& ray) {
 	Vector3D reflectVec = 2 * lightVec.dot(norm) * norm - lightVec;
 	reflectVec.normalize();
 
-	Color amb = *(ray.intersection.mat).ambient * col_ambient;
-	Color diff = *(ray.intersection.mat).diffuse * col_diffuse * max(0, norm.dot(lightVec));
-	Color spec = *(ray.intersection.mat).specular * col_specular * max(0, pow(viewVec.dot(reflectVec), *(ray.intersection.mat).specular_exp));
+	Color amb = ray.intersection.mat->ambient * col_ambient;
+	Color diff = fmax(0, norm.dot(lightVec)) * col_diffuse * ray.intersection.mat->diffuse;
+	Color spec = fmax(0, pow(viewVec.dot(reflectVec), ray.intersection.mat->specular_exp)) * col_specular * ray.intersection.mat->specular;
 
 	ray.col = ray.col + amb + diff + spec;
 	ray.col.clamp();
