@@ -29,10 +29,10 @@ int main(int argc, char* argv[])
 	// Define materials for shading.
 	Material gold(Color(0.3, 0.3, 0.3), Color(0.75164,0.60648,0.22648),
 		Color(0.628281, 0.555802, 0.366065),
-		51.2);
+		51.2, 0.2);
 	Material jade(Color(0, 0, 0), Color(0.54,0.89,0.63),
 		Color(0.316228,0.316228,0.316228),
-		12.8);
+		12.8, 0.1);
 
 	// Defines a point light source.
 	PointLight* pLight = new PointLight(Point3D(0,0,5), Color(0.9,0.9,0.9));
