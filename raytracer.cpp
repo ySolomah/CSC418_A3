@@ -35,13 +35,20 @@ void Raytracer::computeTransforms(Scene& scene) {
 	}
 }
 
-void Raytracer::computeShading(Ray3D& ray, LightList& light_list) {
+void Raytracer::computeShading(Scene& scene, Ray3D& ray, LightList& light_list) {
 	for (size_t  i = 0; i < light_list.size(); ++i) {
 		LightSource* light = light_list[i];
 		
 		// Each lightSource provides its own shading function.
 		// Implement shadows here if needed.
-		light->shade(ray);        
+		Point3D lightPos = light->get_position();
+		Point3D shadePos = ray.intersection.point;
+		Vector3D dir = lightPos-shadePos;
+		Ray3D intersectShadowRay(shadePos, lightPos-shadePos);
+		traverseScene(scene, intersectShadowRay);
+		if(intersectShadowRay.intersection.none) {
+			light->shade(ray);
+		}
 	}
 }
 
@@ -54,7 +61,7 @@ Color Raytracer::shadeRay(Ray3D& ray, Scene& scene, LightList& light_list, int r
 	// anything.
 	if (!ray.intersection.none) {
 		if(reflDepth < maxDepth) {
-			computeShading(ray, light_list); 
+			computeShading(scene, ray, light_list); 
 			Vector3D direction = ray.dir;
 			Vector3D norm = ray.intersection.normal;
 			Vector3D reflectionDirection = -2*direction.dot(norm) * norm + direction;
@@ -85,26 +92,32 @@ void Raytracer::render(Camera& camera, Scene& scene, LightList& light_list, Imag
 		for (int j = 0; j < image.width; j++) {
 			// Sets up ray origin and direction in view space, 
 			// image plane is at z = -1.
-			Point3D origin(0, 0, 0);
-			Point3D imagePlane;
-			imagePlane[0] = (-double(image.width)/2 + 0.5 + j)/factor;
-			imagePlane[1] = (-double(image.height)/2 + 0.5 + i)/factor;
-			imagePlane[2] = -1;
+			Color finalcol (0.0, 0.0, 0.0);
+			for(float m = -0.25; m < 0.5; m = m+0.25) {
+				for(float n = -0.25; n < 0.5; n = n+0.25) {
+					Point3D origin(0, 0, 0);
+					Point3D imagePlane;
+					imagePlane[0] = (-double(image.width)/2 + 0.5 + j + m)/factor;
+					imagePlane[1] = (-double(image.height)/2 + 0.5 + i + n)/factor;
+					imagePlane[2] = -1;
 
-			
-			
-			Ray3D ray;
-			// TODO: Convert ray to world space  
+					
+					
+					Ray3D ray;
+					// TODO: Convert ray to world space  
 
-			Vector3D direction = imagePlane - origin;
-			direction = viewToWorld * direction;
-			origin = viewToWorld * origin;
-			ray = Ray3D(origin, direction);
-			ray.origin = origin;
-			ray.dir = direction;
-			
-			Color col = shadeRay(ray, scene, light_list, 0); 
-			image.setColorAtPixel(i, j, col);			
+					Vector3D direction = imagePlane - origin;
+					direction = viewToWorld * direction;
+					origin = viewToWorld * origin;
+					ray = Ray3D(origin, direction);
+					ray.origin = origin;
+					ray.dir = direction;
+					
+					Color col = shadeRay(ray, scene, light_list, 0); 
+					finalcol = finalcol + 0.11111 * col;
+				}
+			}
+			image.setColorAtPixel(i, j, finalcol);			
 		}
 	}
 }
