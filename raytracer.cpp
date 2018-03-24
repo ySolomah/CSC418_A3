@@ -42,13 +42,21 @@ void Raytracer::computeShading(Scene& scene, Ray3D& ray, LightList& light_list) 
 		// Each lightSource provides its own shading function.
 		// Implement shadows here if needed.
 		Point3D lightPos = light->get_position();
-		Point3D shadePos = ray.intersection.point;
-		Vector3D dir = lightPos-shadePos;
-		Ray3D intersectShadowRay(shadePos, lightPos-shadePos);
-		traverseScene(scene, intersectShadowRay);
-		if(intersectShadowRay.intersection.none) {
-			light->shade(ray);
+		for(float i = -0.25; i < 0.5; i=i+0.5) {
+			for(float j = -0.25; j < 0.5; j=j+0.5) {
+				for(float k = -0.25; k < 0.5; k=k+0.5) {
+					lightPos = Point3D(i + lightPos[0], j + lightPos[1], k + lightPos[2]);
+					Point3D shadePos = ray.intersection.point;
+					Vector3D dir = lightPos-shadePos;
+					Ray3D intersectShadowRay(shadePos, lightPos-shadePos);
+					traverseScene(scene, intersectShadowRay);
+					if(intersectShadowRay.intersection.none) {
+						light->shade(ray, 0.125);
+					}
+				}
+			}
 		}
+
 	}
 }
 

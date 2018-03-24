@@ -9,7 +9,7 @@
 #include <cmath>
 #include "light_source.h"
 
-void PointLight::shade(Ray3D& ray) {
+void PointLight::shade(Ray3D& ray, float attenuateFactor) {
 	// TODO: implement this function to fill in values for ray.col 
 	// using phong shading.  Make sure your vectors are normalized, and
 	// clamp colour values to 1.0.
@@ -34,7 +34,7 @@ void PointLight::shade(Ray3D& ray) {
 	Color diff = fmax(0, norm.dot(lightVec)) * col_diffuse * ray.intersection.mat->diffuse;
 	Color spec = fmax(0, pow(viewVec.dot(reflectVec), ray.intersection.mat->specular_exp)) * col_specular * ray.intersection.mat->specular;
 
-	ray.col = ray.col + amb + diff + spec;
+	ray.col = ray.col + attenuateFactor * (amb + diff + spec);
 	ray.col.clamp();
 
 }
