@@ -46,18 +46,23 @@ void Raytracer::computeShading(Ray3D& ray, LightList& light_list, Scene& scene) 
 		// TODO: hard shadowing
 		// look from ray intersection point to light source, if we intersect
 		// an object before hitting light source then shadow
-		Point3D origin = ray.intersection.point;
-		Vector3D to_light = light->get_position() - origin;
-		to_light.normalize();
+
 		// offset so we don't intersect the same object
-		Ray3D shadow(origin+0.000000001*to_light, to_light);
-		traverseScene(scene, shadow);
-		// if we hit something before the light
-		if (!shadow.intersection.none){
-			ray.col = Color(0.0, 0.0, 0.0);
-			return;
+		Point3D origin = ray.intersection.point;
+		int numAvg = 4;
+		for(int i = 0; i < numAvg; i++) {
+			float randNum1 = (float) (rand() % 3);
+			float randNum2 = (float) (rand() % 3);
+			float randNum3 = (float) (rand() % 3);
+			Vector3D to_light = light->get_position() + Vector3D(randNum1/27.0, randNum3/27.0, randNum3/27.0) - origin;
+			Ray3D shadow(origin+0.000000001*to_light, to_light);
+			traverseScene(scene, shadow);
+			if (shadow.intersection.none){
+				light->shade(ray, (1.0/numAvg));
+			}	
+			// if we hit something before the light
 		}
-		light->shade(ray);
+
 	}
 }
 
@@ -100,23 +105,46 @@ void Raytracer::render(Camera& camera, Scene& scene, LightList& light_list, Imag
 	// Construct a ray for each pixel.
 	for (int i = 0; i < image.height; i++) {
 		for (int j = 0; j < image.width; j++) {
-			// Sets up ray origin and direction in view space, 
-			// image plane is at z = -1.
-			Point3D origin(0, 0, 0);
-			Point3D imagePlane;
-			imagePlane[0] = (-double(image.width)/2 + 0.5 + j)/factor;
-			imagePlane[1] = (-double(image.height)/2 + 0.5 + i)/factor;
-			imagePlane[2] = -1;
+			Color finalCol (0.0, 0.0, 0.0);
+			for (float m = -0.25; m < 0.5; m=m+0.5) {
+				for (float n = -0.25; n < 0.5; n=n+0.5) {
+						// Sets up ray origin and direction in view space, 
+						// image plane is at z = -1.
+						Point3D origin(0, 0, 0);
+						Point3D imagePlane;
+						imagePlane[0] = (-double(image.width)/2 + 0.5 + j + m)/factor;
+						imagePlane[1] = (-double(image.height)/2 + 0.5 + i + n)/factor;
+						imagePlane[2] = -1;
 
-			
-			
-			Ray3D ray;
-		    ray.origin = viewToWorld * origin;
-            ray.dir = viewToWorld * (imagePlane - origin);
-            ray.dir.normalize();
+						Color colorSec (0.0, 0.0, 0.0);
+						int numFocal = 4;
+						for(int u = 0; u < numFocal; u++) {
+							float randNum1 = (float) (rand() % 15);
+							float randNum2 = (float) (rand() % 15);
+							float randNum3 = (float) (rand() % 15);
+							Point3D originSec (randNum1/400.0, randNum2/400.0, randNum3/400.0);
+							Vector3D tempDir = imagePlane - origin;
+							tempDir.normalize();
+							Point3D focalPoint = origin + 4.0 * tempDir;
+							Ray3D raySec;
+							raySec.origin = viewToWorld * originSec;
+							raySec.dir = viewToWorld * (focalPoint - originSec);
+							Color tempCol = shadeRay(raySec, scene, light_list, 1);
+							colorSec = colorSec + (1.0/numFocal) * tempCol;
+						}
 
-			Color col = shadeRay(ray, scene, light_list, 3); 
-			image.setColorAtPixel(i, j, col);			
+
+						
+						Ray3D ray;
+					    ray.origin = viewToWorld * origin;
+			            ray.dir = viewToWorld * (imagePlane - origin);
+			            ray.dir.normalize();
+
+						Color col = shadeRay(ray, scene, light_list, 2); 
+						finalCol = finalCol + 0.25 * ( 0.6 * col + 0.4 * colorSec );
+				}
+			}
+			image.setColorAtPixel(i, j, finalCol);			
 		}
 	}
 }

@@ -49,7 +49,7 @@ int main(int argc, char* argv[])
 	scene.push_back(cylinder);
 	// Apply some transformations to the sphere and unit square.
 	double factor1[3] = { 0.2, 0.6, 0.4 };
-	sphere->translate(Vector3D(0.7, 0.7, -2));
+	sphere->translate(Vector3D(-0.4, -0.4, -2));
 	sphere->rotate('x', -45);
 	sphere->rotate('z', 45);
 	sphere->scale(Point3D(0, 0, 0), factor1);
