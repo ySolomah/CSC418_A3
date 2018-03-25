@@ -123,6 +123,147 @@ bool UnitSphere::intersect(Ray3D& ray, const Matrix4x4& worldToModel,
 	return(false);
 }
 
+
+bool UnitCylinder::intersect(Ray3D& ray, const Matrix4x4& worldToModel,
+		const Matrix4x4& modelToWorld) {
+	// TODO: implement intersection code for UnitCylinder, which is centred 
+	// on the origin. Top and bottom of cylinder at (0, 0, 0.5) and (0, 0, -0.5)
+	//
+	// Your goal here is to fill ray.intersection with correct values
+	// should an intersection occur.  This includes intersection.point, 
+	// intersection.normal, intersection.none, intersection.t_value.   
+	//
+	// HINT: Remember to first transform the ray into object space  
+	// to simplify the intersection test.
+
+
+	// CYLINDER BODY
+
+	Vector3D dir;
+	Point3D origin;
+
+	dir = worldToModel * ray.dir;
+	origin = worldToModel * ray.origin;
+
+	int flag = 0;
+
+
+	Point3D sphereOrigin = Point3D(0, 0, 0);
+	Ray3D objSpaceRay = Ray3D(origin, dir);
+	objSpaceRay.dir = dir;
+	objSpaceRay.origin = origin;
+	objSpaceRay.dir[2] = 0;
+	objSpaceRay.origin[2] = 0;
+	Vector3D differentialOrigin = objSpaceRay.origin - sphereOrigin;
+
+	double R = 1;
+	double Rsquared = R * R;
+	double A = objSpaceRay.dir.dot(objSpaceRay.dir);
+	double B = 2 * objSpaceRay.dir.dot(differentialOrigin);
+	double C = differentialOrigin.dot(differentialOrigin) - Rsquared;
+
+	double denom = 2 * A;
+	double descrim = B * B - 4 * A * C;
+
+	if( descrim >= 0 ) {
+		double t_1 = (-B + sqrt(descrim)) / denom;
+		double t_2 = (-B - sqrt(descrim)) / denom;
+		double intersect_t = t_1;
+		if (t_2 < t_1){
+			intersect_t = t_2;
+		}
+		// intersection must be in front of image plane
+		if (!(intersect_t <= 0)){
+			float zValue = origin[2] + intersect_t * dir[2];
+
+			if( (ray.intersection.none || intersect_t < ray.intersection.t_value) &&  zValue < 0.5 && zValue > -0.5) {
+				Intersection intersect;
+				//Point3D intersectPoint (origin + intersect_t * dir);
+				double t (intersect_t);
+				Point3D intersectPoint (origin[0] + t * dir[0], origin[1] + t * dir[1], origin[2] + t * dir[2]);
+
+				//ray.intersection = intersect;
+				ray.intersection.none = false;
+				ray.intersection.t_value = intersect_t;
+				ray.intersection.point = modelToWorld * intersectPoint;
+				ray.intersection.normal = transNorm(worldToModel, Vector3D((origin + intersect_t * dir)[0],(origin + intersect_t * dir)[1],0.0));
+				ray.intersection.normal.normalize();
+				flag = 1;
+			}
+		}
+	}
+
+	// CHECK TOP
+
+	dir = worldToModel * ray.dir;
+	origin = worldToModel * ray.origin;
+
+	objSpaceRay.dir = dir;
+	objSpaceRay.origin = origin;
+
+	double t = (0.5 - origin[2]) / dir[2];
+
+
+	objSpaceRay = Ray3D(origin, dir);
+	objSpaceRay.dir = dir;
+	objSpaceRay.origin = origin;
+
+	Point3D p (origin[0] + t * dir[0], origin[1] + t * dir[1], 0.5);
+	if(!(t <= 0)) {
+		if( ((p[0] * p[0] + p[1] * p[1]) < 1) ) {
+			if( ray.intersection.none || t < ray.intersection.t_value ) {
+				Intersection intersect;
+				//ray.intersection = intersect;
+				ray.intersection.none = false;
+				ray.intersection.t_value = t;
+				ray.intersection.point = modelToWorld * p;
+				ray.intersection.normal = transNorm(worldToModel, Vector3D(0, 0, 1));
+				ray.intersection.normal.normalize();
+				flag = 1;
+			}
+		}
+	}
+
+	// CHECK BOTTOM
+
+	dir = worldToModel * ray.dir;
+	origin = worldToModel * ray.origin;
+
+	objSpaceRay.dir = dir;
+	objSpaceRay.origin = origin;
+
+	t = (-0.5 - origin[2]) / dir[2];
+
+
+	objSpaceRay = Ray3D(origin, dir);
+	objSpaceRay.dir = dir;
+	objSpaceRay.origin = origin;
+
+	p = Point3D(origin[0] + t * dir[0], origin[1] + t * dir[1], -0.5);
+	if(!(t <= 0)) {
+		if( ((p[0] * p[0] + p[1] * p[1]) < 1) ) {
+			if( ray.intersection.none || t < ray.intersection.t_value ) {
+				Intersection intersect;
+				//ray.intersection = intersect;
+				ray.intersection.none = false;
+				ray.intersection.t_value = t;
+				ray.intersection.point = modelToWorld * p;
+				ray.intersection.normal = transNorm(worldToModel, Vector3D(0, 0, -1));
+				ray.intersection.normal.normalize();
+				flag = 1;
+			}
+		}
+	}
+
+
+	if(flag == 1) {
+		return(true);
+	}
+
+
+	return(false);
+}
+
 void SceneNode::rotate(char axis, double angle) {
 	Matrix4x4 rotation;
 	double toRadian = 2*M_PI/360.0;

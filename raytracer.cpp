@@ -18,6 +18,7 @@ void Raytracer::traverseScene(Scene& scene, Ray3D& ray)  {
 		SceneNode* node = scene[i];
 
 		if (node->obj->intersect(ray, node->worldToModel, node->modelToWorld)) {
+			// if we intersect with something, we want secondary reflection
 			ray.intersection.mat = node->mat;
 		}
 	}
@@ -35,54 +36,55 @@ void Raytracer::computeTransforms(Scene& scene) {
 	}
 }
 
-void Raytracer::computeShading(Scene& scene, Ray3D& ray, LightList& light_list) {
+void Raytracer::computeShading(Ray3D& ray, LightList& light_list, Scene& scene) {
 	for (size_t  i = 0; i < light_list.size(); ++i) {
 		LightSource* light = light_list[i];
 		
+		int in_shadow = 0;
 		// Each lightSource provides its own shading function.
 		// Implement shadows here if needed.
-		Point3D lightPos = light->get_position();
-		for(float i = -0.25; i < 0.5; i=i+0.5) {
-			for(float j = -0.25; j < 0.5; j=j+0.5) {
-				for(float k = -0.25; k < 0.5; k=k+0.5) {
-					lightPos = Point3D(i + lightPos[0], j + lightPos[1], k + lightPos[2]);
-					Point3D shadePos = ray.intersection.point;
-					Vector3D dir = lightPos-shadePos;
-					Ray3D intersectShadowRay(shadePos, lightPos-shadePos);
-					traverseScene(scene, intersectShadowRay);
-					if(intersectShadowRay.intersection.none) {
-						light->shade(ray, 0.125);
-					}
-				}
-			}
+		// TODO: hard shadowing
+		// look from ray intersection point to light source, if we intersect
+		// an object before hitting light source then shadow
+		Point3D origin = ray.intersection.point;
+		Vector3D to_light = light->get_position() - origin;
+		to_light.normalize();
+		// offset so we don't intersect the same object
+		Ray3D shadow(origin+0.000000001*to_light, to_light);
+		traverseScene(scene, shadow);
+		// if we hit something before the light
+		if (!shadow.intersection.none){
+			ray.col = Color(0.0, 0.0, 0.0);
+			return;
 		}
-
+		light->shade(ray);
 	}
 }
 
-Color Raytracer::shadeRay(Ray3D& ray, Scene& scene, LightList& light_list, int reflDepth) {
+Color Raytracer::shadeRay(Ray3D& ray, Scene& scene, LightList& light_list, int depth) {
 	Color col(0.0, 0.0, 0.0); 
+	if (depth == 0){
+		return col;
+	}
 	traverseScene(scene, ray); 
-	int maxDepth = 4;
 
 	// Don't bother shading if the ray didn't hit 
 	// anything.
 	if (!ray.intersection.none) {
-		if(reflDepth < maxDepth) {
-			computeShading(scene, ray, light_list); 
-			Vector3D direction = ray.dir;
-			Vector3D norm = ray.intersection.normal;
-			Vector3D reflectionDirection = -2*direction.dot(norm) * norm + direction;
-			Ray3D reflectionRay(ray.intersection.point, reflectionDirection);
-			reflectionRay.origin = ray.intersection.point;
-			reflectionRay.dir = reflectionDirection;
-			Color refCol = shadeRay(reflectionRay, scene, light_list, reflDepth + 1);
-			col = ray.col + ray.intersection.mat->reflection_amnt * refCol;
-		}
-	}
+		computeShading(ray, light_list, scene); 
+		col = ray.col;  
+		Ray3D reflected_ray;
+		Vector3D normal = ray.intersection.normal;
+		Vector3D dir = -ray.dir;
+		dir.normalize();
+		// add offset so it doesn't intersect the same object again
+		float EPS = 0.000000001;
+		reflected_ray.origin = ray.intersection.point+EPS*dir;
+		reflected_ray.dir = 2*(dir.dot(normal))*normal-dir;
+		reflected_ray.dir.normalize();
 
-	// You'll want to call shadeRay recursively (with a different ray, 
-	// of course) here to implement reflection/refraction effects.  
+		col = col+0.25*shadeRay(reflected_ray, scene, light_list, depth-1);
+	}
 	col.clamp();
 	return col; 
 }	
@@ -100,33 +102,21 @@ void Raytracer::render(Camera& camera, Scene& scene, LightList& light_list, Imag
 		for (int j = 0; j < image.width; j++) {
 			// Sets up ray origin and direction in view space, 
 			// image plane is at z = -1.
-			Color finalcol (0.0, 0.0, 0.0);
-			for(float m = -0.25; m < 0.5; m = m+0.25) {
-				for(float n = -0.25; n < 0.5; n = n+0.25) {
-					Point3D origin(0, 0, 0);
-					Point3D imagePlane;
-					imagePlane[0] = (-double(image.width)/2 + 0.5 + j + m)/factor;
-					imagePlane[1] = (-double(image.height)/2 + 0.5 + i + n)/factor;
-					imagePlane[2] = -1;
+			Point3D origin(0, 0, 0);
+			Point3D imagePlane;
+			imagePlane[0] = (-double(image.width)/2 + 0.5 + j)/factor;
+			imagePlane[1] = (-double(image.height)/2 + 0.5 + i)/factor;
+			imagePlane[2] = -1;
 
-					
-					
-					Ray3D ray;
-					// TODO: Convert ray to world space  
+			
+			
+			Ray3D ray;
+		    ray.origin = viewToWorld * origin;
+            ray.dir = viewToWorld * (imagePlane - origin);
+            ray.dir.normalize();
 
-					Vector3D direction = imagePlane - origin;
-					direction = viewToWorld * direction;
-					origin = viewToWorld * origin;
-					ray = Ray3D(origin, direction);
-					ray.origin = origin;
-					ray.dir = direction;
-					
-					Color col = shadeRay(ray, scene, light_list, 0); 
-					finalcol = finalcol + 0.11111 * col;
-				}
-			}
-			image.setColorAtPixel(i, j, finalcol);			
+			Color col = shadeRay(ray, scene, light_list, 1); 
+			image.setColorAtPixel(i, j, col);			
 		}
 	}
 }
-
