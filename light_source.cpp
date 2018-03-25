@@ -9,7 +9,7 @@
 #include <cmath>
 #include "light_source.h"
 
-void PointLight::shade(Ray3D& ray, float attenuateFactor) {
+void PointLight::shade(Ray3D& ray) {
 	// TODO: implement this function to fill in values for ray.col 
 	// using phong shading.  Make sure your vectors are normalized, and
 	// clamp colour values to 1.0.
@@ -17,25 +17,40 @@ void PointLight::shade(Ray3D& ray, float attenuateFactor) {
 	// It is assumed at this point that the intersection information in ray 
 	// is available.  So be sure that traverseScene() is called on the ray 
 	// before this function.  
+	// assume we get world position of light source
+	Vector3D light = pos - ray.intersection.point;
+	light.normalize(); 
 
-	Vector3D norm = ray.intersection.normal;
-	norm.normalize();
+	Vector3D normal = ray.intersection.normal;
+	normal.normalize();
 
-	Vector3D lightVec = pos - ray.intersection.point;
-	lightVec.normalize();
+	double angle = normal.dot(light);
+	if (angle < 0){
+		angle = 0;
+	}
+	// calculate specular component
+	double specular_exp = ray.intersection.mat->specular_exp;
 
-	Vector3D viewVec = -ray.dir;
-	viewVec.normalize();
+	Vector3D reflected_light = 2.0*(light.dot(normal))*normal-light;
+	reflected_light.normalize();
 
-	Vector3D reflectVec = 2 * lightVec.dot(norm) * norm - lightVec;
-	reflectVec.normalize();
+	Vector3D view = -ray.dir;
+	view.normalize();
 
-	Color amb = ray.intersection.mat->ambient * col_ambient;
-	Color diff = fmax(0, norm.dot(lightVec)) * col_diffuse * ray.intersection.mat->diffuse;
-	Color spec = fmax(0, pow(viewVec.dot(reflectVec), ray.intersection.mat->specular_exp)) * col_specular * ray.intersection.mat->specular;
+	double specAngle = reflected_light.dot(view);
+	if (specAngle < 0){
+		specAngle = 0.0;
+	}
+	specAngle = pow(specAngle, specular_exp);
+	
+	Color ambient = ray.intersection.mat->ambient;
+	Color diffuse = ray.intersection.mat->diffuse;
+	Color specular = ray.intersection.mat->specular;
+	
+	ray.col = ambient;
+	ray.col = ray.col + diffuse*(angle*col_diffuse);
+	ray.col = ray.col + specular*(specAngle*col_specular);
 
-	ray.col = ray.col + attenuateFactor * (amb + diff + spec);
 	ray.col.clamp();
-
 }
 

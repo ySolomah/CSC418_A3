@@ -22,38 +22,37 @@ bool UnitSquare::intersect(Ray3D& ray, const Matrix4x4& worldToModel,
 	//
 	// HINT: Remember to first transform the ray into object space  
 	// to simplify the intersection test.
-
-	Vector3D direction;
-	Point3D origin;
-
-	direction = worldToModel * ray.dir;
-	origin = worldToModel * ray.origin;
-
-	double t = 0.0 - origin[2] / direction[2];
-
-	if( t <= 0 ) {
-		return(false);
+	Ray3D r;
+	r.origin = worldToModel * ray.origin;
+	r.dir = worldToModel * ray.dir;
+	
+	// get x and y values of our ray when z = 0
+	double t = (0.0 - r.origin[2])/r.dir[2];
+	if (t <= 0){
+		return false;
 	}
+	double rx_at_plane = r.origin[0] + t*r.dir[0];
+	double ry_at_plane = r.origin[1] + t*r.dir[1];
 
-	Ray3D objSpaceRay = Ray3D(origin, direction);
-	objSpaceRay.dir = direction;
-	objSpaceRay.origin = origin;
-
-	Point3D p (origin[0] + t * direction[0], origin[1] + t * direction[1], 0.0);
-	if( p[0] >= -0.5 && p[0] <= 0.5 && p[1] >= -0.5 && p[1] <= 0.5 ) {
-		if( ray.intersection.none || t < ray.intersection.t_value ) {
-			Intersection intersect;
-			//ray.intersection = intersect;
-			ray.intersection.none = false;
-			ray.intersection.t_value = t;
-			ray.intersection.point = modelToWorld * p;
-			ray.intersection.normal = transNorm(worldToModel, Vector3D(0, 0, 1));
-			ray.intersection.normal.normalize();
-			return(true);
+	if (std::abs(rx_at_plane) <= 0.5 && std::abs(ry_at_plane) <= 0.5) {
+		// if we already have an intersection and it is closer, don't update
+		if (!(ray.intersection.none || t < ray.intersection.t_value)){
+			return false;
 		}
+		// now we have the point of intersection and normal in camera space
+		Point3D intersectionPoint(rx_at_plane, ry_at_plane, 0.0);
+		Vector3D normal(0, 0, 1);
+		// convert back to world space
+		ray.intersection.point = modelToWorld * intersectionPoint;
+		// special conversion for normal vector to preserve angles
+		ray.intersection.normal = transNorm(worldToModel, normal);
+		ray.intersection.normal.normalize();
+		ray.intersection.t_value = t;
+		ray.intersection.none = false;
+		return true;
 	}
 
-	return(false);
+	return false;
 }
 
 bool UnitSphere::intersect(Ray3D& ray, const Matrix4x4& worldToModel,
@@ -67,60 +66,49 @@ bool UnitSphere::intersect(Ray3D& ray, const Matrix4x4& worldToModel,
 	//
 	// HINT: Remember to first transform the ray into object space  
 	// to simplify the intersection test.
+	Ray3D r;
+	r.origin = worldToModel * ray.origin;
+	r.dir = worldToModel * ray.dir;
 
-	Vector3D dir;
-	Point3D origin;
+	// intersection becomes solving quadratic formula for t
+	Point3D s_origin(0, 0, 0);
+	double A = r.dir.dot(r.dir);
+	double B = 2*r.dir.dot(r.origin - s_origin);
+	double C = (r.origin - s_origin).dot(r.origin - s_origin)-1;
 
-	dir = worldToModel * ray.dir;
-	origin = worldToModel * ray.origin;
-
-	Point3D sphereOrigin = Point3D(0, 0, 0);
-	Ray3D objSpaceRay = Ray3D(origin, dir);
-	objSpaceRay.dir = dir;
-	objSpaceRay.origin = origin;
-	Vector3D differentialOrigin = objSpaceRay.origin - sphereOrigin;
-
-	double R = 1;
-	double Rsquared = R * R;
-	double A = dir.dot(dir);
-	double B = 2 * dir.dot(differentialOrigin);
-	double C = differentialOrigin.dot(differentialOrigin) - Rsquared;
-
-	double denom = 2 * A;
-	double descrim = B * B - 4 * A * C;
-	if( descrim < 0 ) {
-		return(false);
-	}
-
-	double t_1 = (-B + sqrt(descrim)) / denom;
-	double t_2 = (-B - sqrt(descrim)) / denom;
-	double intersect_t = t_1;
-	if (t_2 < t_1){
-		intersect_t = t_2;
-	}
-	// intersection must be in front of image plane
-	if (intersect_t <= 0){
+	// imaginary discriminant
+	if (B*B - 4*A*C < 0){
 		return false;
 	}
-
-	if( ray.intersection.none || intersect_t < ray.intersection.t_value ) {
-		Intersection intersect;
-		//Point3D intersectPoint (origin + intersect_t * dir);
-		double t (intersect_t);
-		Point3D intersectPoint (origin[0] + t * dir[0], origin[1] + t * dir[1], origin[2] + t * dir[2]);
-
-		//ray.intersection = intersect;
-		ray.intersection.none = false;
-		ray.intersection.t_value = intersect_t;
-		ray.intersection.point = modelToWorld * intersectPoint;
-		ray.intersection.normal = transNorm(worldToModel, Vector3D((origin + intersect_t * dir)[0],(origin + intersect_t * dir)[1],(origin + intersect_t * dir)[2]));
-		ray.intersection.normal.normalize();
-		return(true);
+	double discriminant = sqrt(B*B-4*A*C);
+	double t_1 = (-B+discriminant)/(2*A);
+	double t_2 = (-B-discriminant)/(2*A);
+	// take the minimum of the two t-values
+	double t = t_1;
+	if (t_2 < t_1){
+		t = t_2;
 	}
-
-
-
-	return(false);
+	// intersection must be in front of image plane
+	if (t <= 0){
+		return false;
+	}
+	// don't intersect if we already have a closer intersection point
+	if (!ray.intersection.none && t >= ray.intersection.t_value){
+		return false;
+	}
+	Point3D intersectionPoint(
+		r.origin[0]+t*r.dir[0], 
+		r.origin[1]+t*r.dir[1],
+		r.origin[2]+t*r.dir[2]
+	);
+	Vector3D normal;
+	normal = intersectionPoint - s_origin;
+	ray.intersection.point = modelToWorld * intersectionPoint;
+	ray.intersection.normal = transNorm(worldToModel, normal);
+	ray.intersection.normal.normalize();
+	ray.intersection.t_value = t;
+	ray.intersection.none = false;
+	return true;
 }
 
 

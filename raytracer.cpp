@@ -115,8 +115,9 @@ void Raytracer::render(Camera& camera, Scene& scene, LightList& light_list, Imag
             ray.dir = viewToWorld * (imagePlane - origin);
             ray.dir.normalize();
 
-			Color col = shadeRay(ray, scene, light_list, 1); 
+			Color col = shadeRay(ray, scene, light_list, 3); 
 			image.setColorAtPixel(i, j, col);			
 		}
 	}
 }
+

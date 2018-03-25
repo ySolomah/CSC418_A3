@@ -21,7 +21,7 @@ private:
 
 	// Return the color of the ray after intersection and shading, call 
 	// this function recursively for reflection and refraction.  
-	Color shadeRay(Ray3D& ray, Scene& scene, LightList& light_list, int reflDepth);
+	Color shadeRay(Ray3D& ray, Scene& scene, LightList& light_list, int depth);
 
 	// Traversal code for the scene, the ray is transformed into 
 	// the object space of each node where intersection is performed.
@@ -29,7 +29,7 @@ private:
 
 	// After intersection, calculate the color of the ray by shading it
 	// with all light sources in the scene.
-	void computeShading(Scene& scene, Ray3D& ray, LightList& light_list);
+	void computeShading(Ray3D& ray, LightList& light_list, Scene& scene);
 
 	// Precompute the modelToWorld and worldToModel transformations for each
     // object in the scene.
