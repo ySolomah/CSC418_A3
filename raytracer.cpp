@@ -125,7 +125,7 @@ void Raytracer::render(Camera& camera, Scene& scene, LightList& light_list, Imag
 							Point3D originSec (randNum1/400.0, randNum2/400.0, randNum3/400.0);
 							Vector3D tempDir = imagePlane - origin;
 							tempDir.normalize();
-							Point3D focalPoint = origin + 4.0 * tempDir;
+							Point3D focalPoint = origin + 6.0 * tempDir;
 							Ray3D raySec;
 							raySec.origin = viewToWorld * originSec;
 							raySec.dir = viewToWorld * (focalPoint - originSec);
